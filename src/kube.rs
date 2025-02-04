@@ -1,22 +1,18 @@
 use crate::smooth_operator::ClusterEntity;
 use crate::smooth_operator::ClusterEntity::*;
 use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::api::core::v1;
-use k8s_openapi::api::core::v1::{
-    Namespace, PersistentVolume, PersistentVolumeClaim, Pod, Service,
-};
+use k8s_openapi::api::core::v1::{Namespace, PersistentVolumeClaim, Pod, Service};
 use k8s_openapi::serde::de::DeserializeOwned;
 use k8s_openapi::{Metadata, NamespaceResourceScope};
 use kube::api::{ListParams, ObjectList};
 use kube::runtime::reflector::Lookup;
-use kube::{Api, Client, Resource};
+use kube::{Api, Client};
 use log::error;
 use regex::Regex;
-use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard, OnceCell};
+use tokio::sync::{Mutex, OnceCell};
 
 static CLIENT: OnceCell<Client> = OnceCell::const_new();
 
@@ -37,7 +33,7 @@ pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<S
         (_Service, vec![]),
         (_PersistentVolumeClaim, vec![]),
     ]);
-    let regex = Regex::new(format!("r{}", reg).as_str()).unwrap();
+    let regex = Regex::new(reg).unwrap();
 
     //need refactoring but hard(or impossible) with web of traits and bounds
     for namespace in find_all_namespaces().await.iter() {
@@ -107,7 +103,7 @@ pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<S
             }
         }
     }
-    
+
     map
 }
 
