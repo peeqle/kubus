@@ -1,58 +1,20 @@
+use crate::smooth_operator::ClusterEntity::*;
+use crate::smooth_operator::DefaultClusterOperations::*;
 use crate::smooth_operator::*;
 use clap::{value_parser, Arg, ArgAction, Command};
 use std::fmt::Debug;
 use DefaultClusterOperations::Namespace;
 use SpecifiedClusterOperations::{List, PrettyList};
-use crate::smooth_operator::ClusterEntity::*;
-use crate::smooth_operator::DefaultClusterOperations::*;
 
 pub fn build_args() -> Option<ParsedParameters> {
     let command = Command::new("kubus")
         .version("0.0.1")
         .author("peeqle")
-        .arg(
-            Arg::new(Namespace.name())
-                .value_parser(value_parser!(String))
-                .short(Namespace.micro_name())
-                .long(Namespace.name())
-                .action(ArgAction::Set)
-                .required(false)
-                .help("Namespace for cluster operation, default is 'default'"),
-        )
-        .arg(
-            Arg::new(Delete.name())
-                .value_parser(value_parser!(String))
-                .short(Delete.micro_name())
-                .long(Delete.name())
-                .action(ArgAction::Set)
-                .required(false)
-                .help("Delete operation"),
-        )
-        .arg(
-            Arg::new(Create.name())
-                .value_parser(value_parser!(String))
-                .short(Create.micro_name())
-                .long(Create.name())
-                .action(ArgAction::Set)
-                .required(false)
-                .help("Cluster default operation"),
-        )
-        .arg(
-            Arg::new(List.name())
-                .value_parser(value_parser!(String))
-                .long(List.name())
-                .action(ArgAction::Set)
-                .required(false)
-                .help("Cluster default operation"),
-        )
-        .arg(
-            Arg::new(PrettyList.name())
-                .value_parser(value_parser!(String))
-                .long(PrettyList.name())
-                .action(ArgAction::Set)
-                .required(false)
-                .help("Cluster default operation"),
-        );
+        .arg(create_default_arg_item(&Namespace))
+        .arg(create_default_arg_item(&Delete))
+        .arg(create_default_arg_item(&Create))
+        .arg(create_default_arg_item(&List))
+        .arg(create_default_arg_item(&PrettyList));
 
     let matches = append_entity_context(&command).get_matches();
 
@@ -66,38 +28,41 @@ fn append_entity_context(command: &Command) -> Command {
     command
         .clone()
         .arg(
-            Arg::new(PersistentVolumeClaim.name())
-                .long(PersistentVolumeClaim.name())
+            Arg::new(_PersistentVolumeClaim.name())
+                .long(_PersistentVolumeClaim.name())
                 .action(ArgAction::Count)
                 .required(false)
                 .help("Cluster default operation"),
         )
         .arg(
-            Arg::new(PersistentVolume.name())
-                .long(PersistentVolume.name())
+            Arg::new(_Service.name())
+                .long(_Service.name())
                 .action(ArgAction::Count)
                 .required(false)
                 .help("Cluster default operation"),
         )
         .arg(
-            Arg::new(Service.name())
-                .long(Service.name())
+            Arg::new(_Pod.name())
+                .long(_Pod.name())
                 .action(ArgAction::Count)
                 .required(false)
                 .help("Cluster default operation"),
         )
         .arg(
-            Arg::new(Pod.name())
-                .long(Pod.name())
+            Arg::new(_Deployment.name())
+                .long(_Deployment.name())
                 .action(ArgAction::Count)
                 .required(false)
                 .help("Cluster default operation"),
         )
-        .arg(
-            Arg::new(Deployment.name())
-                .long(Deployment.name())
-                .action(ArgAction::Count)
-                .required(false)
-                .help("Cluster default operation"),
-        )
+}
+
+pub fn create_default_arg_item<T: NamedArgument>(entity: &'static T) -> Arg {
+    let name = entity.name().clone();
+    Arg::new(name)
+        .value_parser(value_parser!(String))
+        .long(name)
+        .action(ArgAction::Set)
+        .required(false)
+        .help(format!("Cluster default {} operation", entity.name()))
 }

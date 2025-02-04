@@ -1,9 +1,9 @@
+use crate::smooth_operator::ClusterEntity::*;
+use crate::smooth_operator::DefaultClusterOperations::*;
 use clap::ArgMatches;
 use std::rc::Weak;
 use std::slice::Iter;
 use SpecifiedClusterOperations::*;
-use crate::smooth_operator::ClusterEntity::*;
-use crate::smooth_operator::DefaultClusterOperations::*;
 
 #[derive(Clone)]
 pub struct ParsedParameters {
@@ -18,13 +18,12 @@ pub enum DefaultClusterOperations {
     Namespace,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ClusterEntity {
-    PersistentVolumeClaim,
-    PersistentVolume,
-    Service,
-    Pod,
-    Deployment,
+    _PersistentVolumeClaim,
+    _Deployment,
+    _Service,
+    _Pod,
 }
 
 #[derive(Clone, Debug)]
@@ -44,6 +43,7 @@ pub struct ArgumentCall {
 pub trait ClusterName {
     fn cluster_name(&self) -> &str;
 }
+
 pub trait NamedArgument {
     fn name(&self) -> &str;
 }
@@ -90,7 +90,6 @@ impl NamedArgument for ClusterEntity {
     fn name(&self) -> &str {
         match self {
             PersistentVolumeClaim => "pvc",
-            PersistentVolume => "pv",
             Service => "svc",
             Pod => "pod",
             Deployment => "dpl",
@@ -135,12 +134,11 @@ impl DefaultClusterOperations {
 
 impl ClusterEntity {
     pub fn iterator() -> Iter<'static, ClusterEntity> {
-        static OPERATIONS: [ClusterEntity; 5] = [
-            PersistentVolumeClaim,
-            PersistentVolume,
-            Service,
-            Pod,
-            Deployment,
+        static OPERATIONS: [ClusterEntity; 4] = [
+            _PersistentVolumeClaim,
+            _Service,
+            _Pod,
+            _Deployment,
         ];
         OPERATIONS.iter()
     }
