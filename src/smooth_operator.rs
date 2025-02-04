@@ -3,6 +3,7 @@ use crate::smooth_operator::DefaultClusterOperations::*;
 use clap::ArgMatches;
 use std::rc::Weak;
 use std::slice::Iter;
+use Operations::*;
 use SpecifiedClusterOperations::*;
 
 #[derive(Clone)]
@@ -32,6 +33,11 @@ pub enum SpecifiedClusterOperations {
     PrettyList,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Operations {
+    FindNameLike,
+}
+
 #[derive(Clone)]
 pub struct ArgumentCall {
     pub(crate) initial: DefaultClusterOperations,
@@ -40,12 +46,12 @@ pub struct ArgumentCall {
     pub(crate) head_link: Option<Weak<ArgumentCall>>,
 }
 
-pub trait ClusterName {
-    fn cluster_name(&self) -> &str;
-}
-
 pub trait NamedArgument {
     fn name(&self) -> &str;
+}
+
+pub trait DescriptionArgument {
+    fn description(&self) -> &str;
 }
 
 pub trait MicroArgument {
@@ -57,14 +63,18 @@ pub trait MatchParser<T> {
     fn find_operation_match(matches: &ArgMatches) -> Option<T>;
 }
 
-impl ClusterName for ClusterEntity {
-    fn cluster_name(&self) -> &str {
+impl DescriptionArgument for Operations {
+    fn description(&self) -> &str {
         match self {
-            PersistentVolumeClaim => "pvc",
-            PersistentVolume => "pv",
-            Service => "svc",
-            Pod => "pod",
-            Deployment => "dpl",
+            FindNameLike => "Find matches for name like provided regexp from all-across the cluster"
+        }
+    }
+}
+
+impl NamedArgument for Operations {
+    fn name(&self) -> &str {
+        match self {
+            FindNameLike => "fanl",
             _ => {
                 panic!("Unknown cluster operation")
             }
@@ -89,10 +99,10 @@ impl NamedArgument for DefaultClusterOperations {
 impl NamedArgument for ClusterEntity {
     fn name(&self) -> &str {
         match self {
-            PersistentVolumeClaim => "pvc",
-            Service => "svc",
-            Pod => "pod",
-            Deployment => "dpl",
+            _PersistentVolumeClaim => "pvc",
+            _Service => "svc",
+            _Pod => "pod",
+            _Deployment => "dpl",
             _ => {
                 panic!("Unknown cluster operation")
             }
@@ -134,12 +144,8 @@ impl DefaultClusterOperations {
 
 impl ClusterEntity {
     pub fn iterator() -> Iter<'static, ClusterEntity> {
-        static OPERATIONS: [ClusterEntity; 4] = [
-            _PersistentVolumeClaim,
-            _Service,
-            _Pod,
-            _Deployment,
-        ];
+        static OPERATIONS: [ClusterEntity; 4] =
+            [_PersistentVolumeClaim, _Service, _Pod, _Deployment];
         OPERATIONS.iter()
     }
 }
