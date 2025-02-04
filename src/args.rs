@@ -27,42 +27,27 @@ pub fn build_args() -> Option<ParsedParameters> {
 fn append_entity_context(command: &Command) -> Command {
     command
         .clone()
-        .arg(
-            Arg::new(_PersistentVolumeClaim.name())
-                .long(_PersistentVolumeClaim.name())
-                .action(ArgAction::Count)
-                .required(false)
-                .help("Cluster default operation"),
-        )
-        .arg(
-            Arg::new(_Service.name())
-                .long(_Service.name())
-                .action(ArgAction::Count)
-                .required(false)
-                .help("Cluster default operation"),
-        )
-        .arg(
-            Arg::new(_Pod.name())
-                .long(_Pod.name())
-                .action(ArgAction::Count)
-                .required(false)
-                .help("Cluster default operation"),
-        )
-        .arg(
-            Arg::new(_Deployment.name())
-                .long(_Deployment.name())
-                .action(ArgAction::Count)
-                .required(false)
-                .help("Cluster default operation"),
-        )
+        .arg(create_default_arg_item_entity(&_PersistentVolumeClaim))
+        .arg(create_default_arg_item_entity(&_Service))
+        .arg(create_default_arg_item_entity(&_Pod))
+        .arg(create_default_arg_item_entity(&_Deployment))
 }
 
 pub fn create_default_arg_item<T: NamedArgument>(entity: &'static T) -> Arg {
-    let name = entity.name().clone();
+    let name = entity.name();
     Arg::new(name)
         .value_parser(value_parser!(String))
         .long(name)
         .action(ArgAction::Set)
         .required(false)
         .help(format!("Cluster default {} operation", entity.name()))
+}
+
+pub fn create_default_arg_item_entity<T: NamedArgument>(entity: &'static T) -> Arg {
+    let name = entity.name();
+    Arg::new(name)
+        .long(name)
+        .action(ArgAction::Count)
+        .required(false)
+        .help("Cluster default operation")
 }
