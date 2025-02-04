@@ -11,3 +11,5 @@ tokio = { version = "1", features = ["default", "sync", "macros", "rt", "rt-mult
 regex = "1.11.1"
 serde = "1.0.217"
 log = "0.4.25"
+strum = "0.26.3"
+strum_macros = "0.26.4"

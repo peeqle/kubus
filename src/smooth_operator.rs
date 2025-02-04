@@ -3,11 +3,12 @@ use crate::smooth_operator::DefaultClusterOperations::*;
 use clap::ArgMatches;
 use std::rc::Weak;
 use std::slice::Iter;
-use Operations::*;
+use Operation::*;
 use SpecifiedClusterOperations::*;
 
 #[derive(Clone)]
 pub struct ParsedParameters {
+    pub operation_call: Option<OperationCall>,
     pub entity_call: Option<ClusterEntity>,
     pub argument_call: Option<ArgumentCall>,
 }
@@ -33,9 +34,16 @@ pub enum SpecifiedClusterOperations {
     PrettyList,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Operations {
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Operation {
     FindNameLike,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct OperationCall {
+    pub operation: Operation,
+    pub value: Option<String>,
+    pub trailing: Option<Box<OperationCall>>,
 }
 
 #[derive(Clone)]
@@ -54,30 +62,24 @@ pub trait DescriptionArgument {
     fn description(&self) -> &str;
 }
 
-pub trait MicroArgument {
-    //pretty average actually
-    fn micro_name(&self) -> char;
-}
-
 pub trait MatchParser<T> {
     fn find_operation_match(matches: &ArgMatches) -> Option<T>;
 }
 
-impl DescriptionArgument for Operations {
+impl DescriptionArgument for Operation {
     fn description(&self) -> &str {
         match self {
-            FindNameLike => "Find matches for name like provided regexp from all-across the cluster"
+            FindNameLike => {
+                "Find matches for name like provided regexp from all-across the cluster"
+            }
         }
     }
 }
 
-impl NamedArgument for Operations {
+impl NamedArgument for Operation {
     fn name(&self) -> &str {
         match self {
             FindNameLike => "fanl",
-            _ => {
-                panic!("Unknown cluster operation")
-            }
         }
     }
 }
@@ -89,9 +91,6 @@ impl NamedArgument for DefaultClusterOperations {
             Delete => "delete",
             Create => "create",
             Namespace => "namespace",
-            _ => {
-                panic!("Unknown cluster operation")
-            }
         }
     }
 }
@@ -103,9 +102,6 @@ impl NamedArgument for ClusterEntity {
             _Service => "svc",
             _Pod => "pod",
             _Deployment => "dpl",
-            _ => {
-                panic!("Unknown cluster operation")
-            }
         }
     }
 }
@@ -115,22 +111,6 @@ impl NamedArgument for SpecifiedClusterOperations {
         match self {
             List => "list",
             PrettyList => "pretty-list",
-            _ => {
-                panic!("Unknown cluster operation")
-            }
-        }
-    }
-}
-
-impl MicroArgument for DefaultClusterOperations {
-    fn micro_name(&self) -> char {
-        match self {
-            Delete => 'd',
-            Create => 'c',
-            Namespace => 'n',
-            _ => {
-                panic!("Unknown cluster operation")
-            }
         }
     }
 }
@@ -146,6 +126,13 @@ impl ClusterEntity {
     pub fn iterator() -> Iter<'static, ClusterEntity> {
         static OPERATIONS: [ClusterEntity; 4] =
             [_PersistentVolumeClaim, _Service, _Pod, _Deployment];
+        OPERATIONS.iter()
+    }
+}
+
+impl Operation {
+    pub fn iterator() -> Iter<'static, Operation> {
+        static OPERATIONS: [Operation; 1] = [FindNameLike];
         OPERATIONS.iter()
     }
 }
@@ -193,5 +180,35 @@ impl MatchParser<ArgumentCall> for DefaultClusterOperations {
             }
         }
         operations
+    }
+}
+
+impl MatchParser<OperationCall> for Operation {
+    fn find_operation_match(matches: &ArgMatches) -> Option<OperationCall> {
+        let mut operation: Option<OperationCall> = None;
+        let mut trailing: Option<Box<OperationCall>> = None;
+
+        for op in Operation::iterator() {
+            if let Some(specified) = matches.get_one::<String>(op.name()) {
+                let argument = OperationCall {
+                    operation: op.clone(),
+                    value: Some(specified.clone()),
+                    trailing: None,
+                };
+
+                if operation.is_none() {
+                    operation = Some(argument.clone());
+                }
+
+                if let Some(ref mut ex_trail) = trailing {
+                    ex_trail.trailing = Some(Box::new(argument.clone()));
+                    trailing = ex_trail.trailing.clone();
+                } else {
+                    trailing = Some(Box::new(argument.clone()));
+                }
+            }
+        }
+
+        operation
     }
 }
