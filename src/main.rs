@@ -12,5 +12,5 @@ static KUBERNETES_RUNNER: &str = "kubectl";
 #[tokio::main]
 async fn main() {
     kube::get_client().await;
-    execute(build_args()).await;
+    execute(parse_args()).await;
 }

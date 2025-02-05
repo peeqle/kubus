@@ -1,6 +1,7 @@
 use crate::smooth_operator::ClusterEntity::*;
 use crate::smooth_operator::DefaultClusterOperations::*;
 use clap::ArgMatches;
+use std::fmt::Debug;
 use std::rc::Weak;
 use std::slice::Iter;
 use Operation::*;
@@ -8,16 +9,21 @@ use SpecifiedClusterOperations::*;
 
 #[derive(Clone)]
 pub struct ParsedParameters {
+    pub namespace: Option<String>,
     pub operation_call: Option<OperationCall>,
     pub entity_call: Option<ClusterEntity>,
     pub argument_call: Option<ArgumentCall>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DefaultClusterOperations {
     Delete,
     Create,
-    Namespace,
+}
+
+#[derive(Clone, Debug)]
+pub enum EnvironmentSpecifiers {
+    Namespace
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -58,6 +64,13 @@ pub trait NamedArgument {
     fn name(&self) -> &str;
 }
 
+pub trait ConflictingIterator<T>
+where
+    T: IterableEnum,
+{
+    fn conflict_explicit(explicit: &T) -> Vec<String>;
+}
+
 pub trait DescriptionArgument {
     fn description(&self) -> &str;
 }
@@ -90,11 +103,17 @@ impl NamedArgument for DefaultClusterOperations {
         match self {
             Delete => "delete",
             Create => "create",
-            Namespace => "namespace",
         }
     }
 }
 
+impl NamedArgument for EnvironmentSpecifiers {
+    fn name(&self) -> &str {
+        match self {
+            EnvironmentSpecifiers::Namespace => "namespace",
+        }
+    }
+}
 impl NamedArgument for ClusterEntity {
     fn name(&self) -> &str {
         match self {
@@ -115,23 +134,27 @@ impl NamedArgument for SpecifiedClusterOperations {
     }
 }
 
-impl DefaultClusterOperations {
-    pub fn iterator() -> Iter<'static, DefaultClusterOperations> {
-        static OPERATIONS: [DefaultClusterOperations; 3] = [Delete, Create, Namespace];
+pub trait IterableEnum: Sized {
+    fn iterator() -> Iter<'static, Self>;
+}
+
+impl IterableEnum for DefaultClusterOperations {
+    fn iterator() -> Iter<'static, DefaultClusterOperations> {
+        static OPERATIONS: [DefaultClusterOperations; 2] = [Delete, Create];
         OPERATIONS.iter()
     }
 }
 
-impl ClusterEntity {
-    pub fn iterator() -> Iter<'static, ClusterEntity> {
+impl IterableEnum for ClusterEntity {
+    fn iterator() -> Iter<'static, ClusterEntity> {
         static OPERATIONS: [ClusterEntity; 4] =
             [_PersistentVolumeClaim, _Service, _Pod, _Deployment];
         OPERATIONS.iter()
     }
 }
 
-impl Operation {
-    pub fn iterator() -> Iter<'static, Operation> {
+impl IterableEnum for Operation {
+    fn iterator() -> Iter<'static, Operation> {
         static OPERATIONS: [Operation; 1] = [FindNameLike];
         OPERATIONS.iter()
     }
@@ -146,6 +169,17 @@ impl MatchParser<ClusterEntity> for ClusterEntity {
             }
         }
         None
+    }
+}
+
+impl ConflictingIterator<ClusterEntity> for ClusterEntity {
+    fn conflict_explicit(explicit: &ClusterEntity) -> Vec<String> {
+        Self::iterator()
+            .filter(|x| **x == *explicit)
+            .into_iter()
+            .filter(|x| **x == *explicit)
+            .map(|x| x.name().to_string())
+            .collect()
     }
 }
 

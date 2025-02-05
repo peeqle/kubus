@@ -1,16 +1,17 @@
-use crate::smooth_operator::ClusterEntity;
 use crate::smooth_operator::ClusterEntity::*;
+use crate::smooth_operator::{ClusterEntity, IterableEnum};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Namespace, PersistentVolumeClaim, Pod, Service};
 use k8s_openapi::serde::de::DeserializeOwned;
-use k8s_openapi::{Metadata, NamespaceResourceScope};
-use kube::api::{ListParams, ObjectList};
+use k8s_openapi::{Metadata, NamespaceResourceScope, Resource};
+use kube::api::{DeleteParams, ListParams, ObjectList};
+use kube::core::Status;
 use kube::runtime::reflector::Lookup;
-use kube::{Api, Client};
+use kube::{Api, Client, ResourceExt};
 use log::error;
 use regex::Regex;
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{format, Debug};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 
@@ -21,9 +22,52 @@ pub async fn get_client() -> &'static Client {
         .get_or_init(|| async {
             Client::try_default()
                 .await
-                .expect("Failed to create client")
+                .expect("Failed to create kubernetes client")
         })
         .await
+}
+
+pub async fn delete_entity(
+    name: String,
+    namespace: String,
+    _type: ClusterEntity,
+) -> Option<Status> {
+    if let Some(client) = CLIENT.get() {
+        return match _type {
+            _PersistentVolumeClaim => {
+                let api: Api<PersistentVolumeClaim> =
+                    Api::<PersistentVolumeClaim>::namespaced(client.clone(), &namespace);
+                let result = api.delete(&name, &DeleteParams::default()).await;
+                result
+                    .expect(format!("Cannot delete PersistentVolumeClaim {} ", &name).as_str())
+                    .right()
+            }
+            _Deployment => {
+                let api: Api<Deployment> =
+                    Api::<Deployment>::namespaced(client.clone(), &namespace);
+                let result = api.delete(&name, &DeleteParams::default()).await;
+                result
+                    .expect(format!("Cannot delete Deployment {} ", &name).as_str())
+                    .right()
+            }
+            _Service => {
+                let api: Api<Service> = Api::<Service>::namespaced(client.clone(), &namespace);
+                let result = api.delete(&name, &DeleteParams::default()).await;
+                result
+                    .expect(format!("Cannot delete Service {} ", &name).as_str())
+                    .right()
+            }
+            _Pod => {
+                let api: Api<Pod> = Api::<Pod>::namespaced(client.clone(), &namespace);
+                let result = api.delete(&name, &DeleteParams::default()).await;
+                result
+                    .expect(format!("Cannot delete Pod {} ", &name).as_str())
+                    .right()
+            }
+        };
+    }
+
+    None
 }
 
 pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<String>> {
@@ -33,78 +77,92 @@ pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<S
         (_Service, vec![]),
         (_PersistentVolumeClaim, vec![]),
     ]);
+
+    for namespace in find_all_namespaces().await.iter() {
+        find_entity_by_name_like_namespaced(
+            reg.clone(),
+            namespace.name().unwrap().parse().unwrap(),
+            &mut map,
+        )
+        .await;
+    }
+
+    map
+}
+
+pub async fn find_entity_by_name_like_namespaced(
+    reg: &str,
+    namespace: String,
+    map: &mut HashMap<ClusterEntity, Vec<String>>,
+) {
     let regex = Regex::new(reg).unwrap();
 
     //need refactoring but hard(or impossible) with web of traits and bounds
-    for namespace in find_all_namespaces().await.iter() {
-        for typed in ClusterEntity::iterator() {
-            if *typed == _Pod {
-                let arc = find::<Pod>(&namespace.name().unwrap()).await;
-                let guard = arc.lock().await;
+    for typed in ClusterEntity::iterator() {
+        if *typed == _Pod {
+            let arc = find::<Pod>(&namespace).await;
+            let guard = arc.lock().await;
 
-                for ent in guard.iter() {
-                    let pod_name = ent.clone().metadata.name.unwrap();
-                    if regex.find(pod_name.as_str()).is_some() {
-                        if let Some(vec) = map.get_mut(&_Pod) {
-                            vec.push(pod_name);
-                        } else {
-                            map.insert(_Pod, vec![pod_name]);
-                        }
+            for ent in guard.iter() {
+                let pod_name = ent.clone().metadata.name.unwrap();
+                if regex.find(pod_name.as_str()).is_some() {
+                    if let Some(vec) = map.get_mut(&_Pod) {
+                        vec.push(pod_name);
+                    } else {
+                        map.insert(_Pod, vec![pod_name]);
                     }
                 }
             }
+        }
 
-            if *typed == _Service {
-                let arc = find::<Service>(&namespace.name().unwrap()).await;
-                let guard = arc.lock().await;
+        if *typed == _Service {
+            let arc = find::<Service>(&namespace).await;
+            let guard = arc.lock().await;
 
-                for ent in guard.iter() {
-                    let pod_name = ent.clone().metadata.name.unwrap();
-                    if regex.find(pod_name.as_str()).is_some() {
-                        if let Some(vec) = map.get_mut(&_Service) {
-                            vec.push(pod_name);
-                        } else {
-                            map.insert(_Service, vec![pod_name]);
-                        }
+            for ent in guard.iter() {
+                let pod_name = ent.clone().metadata.name.unwrap();
+                if regex.find(pod_name.as_str()).is_some() {
+                    if let Some(vec) = map.get_mut(&_Service) {
+                        vec.push(pod_name);
+                    } else {
+                        map.insert(_Service, vec![pod_name]);
                     }
                 }
             }
+        }
 
-            if *typed == _Deployment {
-                let arc = find::<Deployment>(&namespace.name().unwrap()).await;
-                let guard = arc.lock().await;
+        if *typed == _Deployment {
+            let arc = find::<Deployment>(&namespace).await;
+            let guard = arc.lock().await;
 
-                for ent in guard.iter() {
-                    let pod_name = ent.clone().metadata.name.unwrap();
-                    if regex.find(pod_name.as_str()).is_some() {
-                        if let Some(vec) = map.get_mut(&_Deployment) {
-                            vec.push(pod_name);
-                        } else {
-                            map.insert(_Deployment, vec![pod_name]);
-                        }
+            for ent in guard.iter() {
+                let pod_name = ent.clone().metadata.name.unwrap();
+                if regex.find(pod_name.as_str()).is_some() {
+                    if let Some(vec) = map.get_mut(&_Deployment) {
+                        vec.push(pod_name);
+                    } else {
+                        map.insert(_Deployment, vec![pod_name]);
                     }
                 }
             }
+        }
 
-            if *typed == _PersistentVolumeClaim {
-                let arc = find::<PersistentVolumeClaim>(&namespace.name().unwrap()).await;
-                let guard = arc.lock().await;
+        if *typed == _PersistentVolumeClaim {
+            let arc = find::<PersistentVolumeClaim>(&namespace).await;
+            let guard = arc.lock().await;
 
-                for ent in guard.iter() {
-                    let pod_name = ent.clone().metadata.name.unwrap();
-                    if regex.find(pod_name.as_str()).is_some() {
-                        if let Some(vec) = map.get_mut(&_PersistentVolumeClaim) {
-                            vec.push(pod_name);
-                        } else {
-                            map.insert(_PersistentVolumeClaim, vec![pod_name]);
-                        }
+            for ent in guard.iter() {
+                let pod_name = ent.clone().metadata.name.unwrap();
+                if regex.find(pod_name.as_str()).is_some() {
+                    if let Some(vec) = map.get_mut(&_PersistentVolumeClaim) {
+                        vec.push(pod_name);
+                    } else {
+                        map.insert(_PersistentVolumeClaim, vec![pod_name]);
                     }
                 }
             }
         }
     }
-
-    map
 }
 
 pub async fn find<
