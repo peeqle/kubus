@@ -16,6 +16,8 @@ Deleting svc with name revify-eureka-cip for namespace default
 Deleting svc with name revify-eureka-lb for namespace default
 $ kubus --fanl revify
 {_Service: [], _Pod: ["revify-eureka-589bff7f99-q6b2x"], _Deployment: ["revify-eureka"], _PersistentVolumeClaim: []}
+$ kubus --fanl revify --dpl 
+{_Deployment: ["revify-eureka"]}
 ```
 
 ## Operations
