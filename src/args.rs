@@ -11,7 +11,7 @@ pub fn parse_args() -> Option<ParsedParameters> {
         .args_override_self(true)
         .version("0.0.1")
         .author("peeqle")
-        .arg(create_default_arg_item(&Namespace))
+        .arg(create_default_arg_item_valued(&Namespace))
         .arg(create_default_arg_item(&Delete))
         .arg(create_default_arg_item(&Create).conflicts_with(Delete.name()))
         .arg(create_default_arg_item(&List).conflicts_with(PrettyList.name()))
@@ -42,6 +42,15 @@ fn append_operations(command: Command) -> Command {
 }
 
 pub fn create_default_arg_item<T: NamedArgument>(entity: &'static T) -> Arg {
+    let name = entity.name();
+    Arg::new(name)
+        .long(name)
+        .action(ArgAction::Count)
+        .required(false)
+        .help("Cluster default operation")
+}
+
+pub fn create_default_arg_item_valued<T: NamedArgument>(entity: &'static T) -> Arg {
     let name = entity.name();
     Arg::new(name)
         .value_parser(value_parser!(String))

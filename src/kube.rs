@@ -1,5 +1,5 @@
 use crate::smooth_operator::ClusterEntity::*;
-use crate::smooth_operator::{ClusterEntity, IterableEnum};
+use crate::smooth_operator::{ClusterEntity, IterableEnum, NamedArgument};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Namespace, PersistentVolumeClaim, Pod, Service};
 use k8s_openapi::serde::de::DeserializeOwned;
@@ -27,6 +27,21 @@ pub async fn get_client() -> &'static Client {
         .await
 }
 
+pub async fn delete_entitties(
+    namespace: String,
+    _type: ClusterEntity,
+    names: Option<&Vec<String>>,
+) {
+    for name in names.expect("Cannot extract operational entitties, vector is empty:(") {
+        println!(
+            "Deleting {} with name {} for namespace {}",
+            _type.name(),
+            name,
+            namespace
+        );
+        delete_entity(String::from(name), String::from(&namespace), _type.clone()).await;
+    }
+}
 pub async fn delete_entity(
     name: String,
     namespace: String,
@@ -70,7 +85,10 @@ pub async fn delete_entity(
     None
 }
 
-pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<String>> {
+pub async fn find_entity_by_name_like(
+    reg: &str,
+    namespace: Option<String>,
+) -> HashMap<ClusterEntity, Vec<String>> {
     let mut map: HashMap<ClusterEntity, Vec<String>> = HashMap::from([
         (_Pod, vec![]),
         (_Deployment, vec![]),
@@ -78,13 +96,13 @@ pub async fn find_entity_by_name_like(reg: &str) -> HashMap<ClusterEntity, Vec<S
         (_PersistentVolumeClaim, vec![]),
     ]);
 
-    for namespace in find_all_namespaces().await.iter() {
-        find_entity_by_name_like_namespaced(
-            reg.clone(),
-            namespace.name().unwrap().parse().unwrap(),
-            &mut map,
-        )
-        .await;
+    if let Some(name_s) = namespace {
+        find_entity_by_name_like_namespaced(reg, name_s, &mut map).await;
+    } else {
+        for namespace in find_all_namespaces().await.iter() {
+            find_entity_by_name_like_namespaced(reg, namespace.name().unwrap().parse().unwrap(), &mut map, )
+                .await;
+        }
     }
 
     map

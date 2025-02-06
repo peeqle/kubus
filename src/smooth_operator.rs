@@ -4,6 +4,8 @@ use clap::ArgMatches;
 use std::fmt::Debug;
 use std::rc::Weak;
 use std::slice::Iter;
+use k8s_openapi::api::core::v1::Pod;
+use kube::Resource;
 use Operation::*;
 use SpecifiedClusterOperations::*;
 
@@ -56,7 +58,6 @@ pub struct OperationCall {
 pub struct ArgumentCall {
     pub(crate) initial: DefaultClusterOperations,
     pub(crate) trailing: Option<Box<ArgumentCall>>,
-    pub(crate) value: Option<String>,
     pub(crate) head_link: Option<Weak<ArgumentCall>>,
 }
 
@@ -193,12 +194,11 @@ impl MatchParser<ArgumentCall> for DefaultClusterOperations {
         }
 
         for op in DefaultClusterOperations::iterator() {
-            let specified: Option<&String> = matches.get_one::<String>(op.name());
+            let specified: u8 = matches.get_count(op.name());
 
-            if specified.is_some() {
+            if specified > 0 {
                 let mut argument = ArgumentCall {
                     initial: op.clone(),
-                    value: Some(String::from(specified.unwrap())),
                     trailing: None,
                     head_link: None,
                 };
