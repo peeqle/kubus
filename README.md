@@ -15,6 +15,5 @@ $ kubus --fanl --pod --service
 
 ## Operations
 
-For more information on how to manipulate Notifications and Reminders
-run `kubus help`.
+For more information on how to manipulate run `kubus help`.
 
