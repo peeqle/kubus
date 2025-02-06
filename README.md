@@ -1,4 +1,4 @@
-v0.0.1 STILL ONGOING
+v0.1 USABLE
 
 # Kubus - local kubernetes batch operations tool
 
