@@ -20,6 +20,6 @@ $ kubus --fanl revify
 
 ## Operations
 
-For more information on how to manipulate run `kubus help`.
+For more information on how to manipulate run `kubus --help`.
 Feel free to contribute.
 

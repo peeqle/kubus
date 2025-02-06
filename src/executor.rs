@@ -16,10 +16,14 @@ pub async fn execute(params: Option<ParsedParameters>) {
                 if call.operation == FindNameLike {
                     existing_entities =
                         find_entity_by_name_like(&*call.value.unwrap(), namespace.clone()).await;
-                    println!("{:?}", existing_entities.clone());
                 }
+                if let Some(entity) = op.entity_call.clone() {
+                    existing_entities.retain(|key, _| *key == entity);
+                }
+                println!("{:?}", existing_entities);
             }
 
+            
             if let Some(argument) = op.argument_call {
                 if argument.initial == Delete {
                     let entity = op.entity_call.unwrap();
@@ -28,10 +32,10 @@ pub async fn execute(params: Option<ParsedParameters>) {
                         namespace.clone().unwrap_or("default".parse().unwrap()),
                         entity.clone(),
                         existing_entities.get(&entity),
-                    ).await;
+                    )
+                    .await;
                 }
             }
-            //todo complete operations
         }
         None => panic!("Cannot find operation."),
     };

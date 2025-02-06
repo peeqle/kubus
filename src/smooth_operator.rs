@@ -4,10 +4,7 @@ use clap::ArgMatches;
 use std::fmt::Debug;
 use std::rc::Weak;
 use std::slice::Iter;
-use k8s_openapi::api::core::v1::Pod;
-use kube::Resource;
 use Operation::*;
-use SpecifiedClusterOperations::*;
 
 #[derive(Clone)]
 pub struct ParsedParameters {
@@ -20,12 +17,11 @@ pub struct ParsedParameters {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DefaultClusterOperations {
     Delete,
-    Create,
 }
 
 #[derive(Clone, Debug)]
 pub enum EnvironmentSpecifiers {
-    Namespace
+    Namespace,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -34,12 +30,6 @@ pub enum ClusterEntity {
     _Deployment,
     _Service,
     _Pod,
-}
-
-#[derive(Clone, Debug)]
-pub enum SpecifiedClusterOperations {
-    List,
-    PrettyList,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -103,7 +93,6 @@ impl NamedArgument for DefaultClusterOperations {
     fn name(&self) -> &str {
         match self {
             Delete => "delete",
-            Create => "create",
         }
     }
 }
@@ -126,22 +115,13 @@ impl NamedArgument for ClusterEntity {
     }
 }
 
-impl NamedArgument for SpecifiedClusterOperations {
-    fn name(&self) -> &str {
-        match self {
-            List => "list",
-            PrettyList => "pretty-list",
-        }
-    }
-}
-
 pub trait IterableEnum: Sized {
     fn iterator() -> Iter<'static, Self>;
 }
 
 impl IterableEnum for DefaultClusterOperations {
     fn iterator() -> Iter<'static, DefaultClusterOperations> {
-        static OPERATIONS: [DefaultClusterOperations; 2] = [Delete, Create];
+        static OPERATIONS: [DefaultClusterOperations; 1] = [Delete];
         OPERATIONS.iter()
     }
 }
