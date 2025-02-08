@@ -79,6 +79,7 @@ pub fn create_default_arg_item_valued<T: NamedArgument>(
     Arg::new(name)
         .value_parser(value_parser!(String))
         .long(name)
+        .short('n')
         .action(ArgAction::Set)
         .required(false)
         .help(description)
