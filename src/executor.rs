@@ -1,4 +1,4 @@
-use crate::kube::{delete_entitties, find_entity_by_name_like};
+use crate::kube::{delete_entities, find_entity_by_name_like};
 use crate::smooth_operator::ClusterEntity;
 use crate::smooth_operator::DefaultClusterOperations::Delete;
 use crate::smooth_operator::Operation::FindNameLike;
@@ -6,7 +6,7 @@ use crate::smooth_operator::ParsedParameters;
 use std::collections::HashMap;
 
 pub async fn execute(params: Option<ParsedParameters>) {
-    let output = match params {
+    match params {
         Some(op) => {
             let mut existing_entities: HashMap<ClusterEntity, Vec<String>> = HashMap::new();
             let namespace = op.namespace;
@@ -28,8 +28,8 @@ pub async fn execute(params: Option<ParsedParameters>) {
                 if argument.initial == Delete {
                     let entity = op.entity_call.unwrap();
 
-                    delete_entitties(
-                        namespace.clone().unwrap_or("default".parse().unwrap()),
+                    delete_entities(
+                        namespace.clone(),
                         entity.clone(),
                         existing_entities.get(&entity),
                     )

@@ -3,7 +3,7 @@ use crate::smooth_operator::{ClusterEntity, IterableEnum, NamedArgument};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Namespace, PersistentVolumeClaim, Pod, Service};
 use k8s_openapi::serde::de::DeserializeOwned;
-use k8s_openapi::{Metadata, NamespaceResourceScope, Resource};
+use k8s_openapi::{Metadata, NamespaceResourceScope};
 use kube::api::{DeleteParams, ListParams, ObjectList};
 use kube::core::Status;
 use kube::runtime::reflector::Lookup;
@@ -11,7 +11,7 @@ use kube::{Api, Client, ResourceExt};
 use log::error;
 use regex::Regex;
 use std::collections::HashMap;
-use std::fmt::{format, Debug};
+use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 
@@ -27,53 +27,74 @@ pub async fn get_client() -> &'static Client {
         .await
 }
 
-pub async fn delete_entitties(
-    namespace: String,
+pub async fn delete_entities(
+    namespace: Option<String>,
     _type: ClusterEntity,
     names: Option<&Vec<String>>,
 ) {
-    for name in names.expect("Cannot extract operational entitties, vector is empty:(") {
-        println!(
-            "Deleting {} with name {} for namespace {}",
-            _type.name(),
-            name,
-            namespace
-        );
-        delete_entity(String::from(name), String::from(&namespace), _type.clone()).await;
+    if let Some(name_) = namespace.clone() {
+        println!("Operating at namespace: {:?}", name_.to_uppercase());
+    }
+    if let Some(names) = names {
+        for name in names {
+            delete_entity(name.clone(), namespace.clone(), _type.clone()).await;
+        }
+    } else {
+        println!("No operational entities found to delete.");
     }
 }
+
 pub async fn delete_entity(
     name: String,
-    namespace: String,
+    namespace: Option<String>,
     _type: ClusterEntity,
 ) -> Option<Status> {
     if let Some(client) = CLIENT.get() {
         return match _type {
             _PersistentVolumeClaim => {
-                let api: Api<PersistentVolumeClaim> =
-                    Api::<PersistentVolumeClaim>::namespaced(client.clone(), &namespace);
+                let api;
+                if let Some(names_) = namespace {
+                    api = Api::<PersistentVolumeClaim>::namespaced(client.clone(), &names_);
+                } else {
+                    api = Api::<PersistentVolumeClaim>::all(client.clone());
+                }
                 let result = api.delete(&name, &DeleteParams::default()).await;
+                println!("Deleting {} for name: {}", _type.name(), &name);
                 result
                     .expect(format!("Cannot delete PersistentVolumeClaim {} ", &name).as_str())
                     .right()
             }
             _Deployment => {
-                let api: Api<Deployment> =
-                    Api::<Deployment>::namespaced(client.clone(), &namespace);
+                let api;
+                if let Some(names_) = namespace {
+                    api = Api::<Deployment>::namespaced(client.clone(), &names_);
+                } else {
+                    api = Api::<Deployment>::all(client.clone());
+                }
                 let result = api.delete(&name, &DeleteParams::default()).await;
                 result
                     .expect(format!("Cannot delete Deployment {} ", &name).as_str())
                     .right()
             }
             _Service => {
-                let api: Api<Service> = Api::<Service>::namespaced(client.clone(), &namespace);
+                let api;
+                if let Some(names_) = namespace {
+                    api = Api::<Service>::namespaced(client.clone(), &names_);
+                } else {
+                    api = Api::<Service>::all(client.clone());
+                }
                 let result = api.delete(&name, &DeleteParams::default()).await;
                 result
-                    .expect(format!("Cannot delete Service {} ", &name).as_str())
+                    .expect(format!("Cannot delete Service {}", &name).as_str())
                     .right()
             }
             _Pod => {
-                let api: Api<Pod> = Api::<Pod>::namespaced(client.clone(), &namespace);
+                let api;
+                if let Some(names_) = namespace {
+                    api = Api::<Pod>::namespaced(client.clone(), &names_);
+                } else {
+                    api = Api::<Pod>::all(client.clone());
+                }
                 let result = api.delete(&name, &DeleteParams::default()).await;
                 result
                     .expect(format!("Cannot delete Pod {} ", &name).as_str())
@@ -100,8 +121,12 @@ pub async fn find_entity_by_name_like(
         find_entity_by_name_like_namespaced(reg, name_s, &mut map).await;
     } else {
         for namespace in find_all_namespaces().await.iter() {
-            find_entity_by_name_like_namespaced(reg, namespace.name().unwrap().parse().unwrap(), &mut map, )
-                .await;
+            find_entity_by_name_like_namespaced(
+                reg,
+                namespace.name().unwrap().to_string(),
+                &mut map,
+            )
+            .await;
         }
     }
 

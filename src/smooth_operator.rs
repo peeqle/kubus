@@ -55,13 +55,6 @@ pub trait NamedArgument {
     fn name(&self) -> &str;
 }
 
-pub trait ConflictingIterator<T>
-where
-    T: IterableEnum,
-{
-    fn conflict_explicit(explicit: &T) -> Vec<String>;
-}
-
 pub trait DescriptionArgument {
     fn description(&self) -> &str;
 }
@@ -150,17 +143,6 @@ impl MatchParser<ClusterEntity> for ClusterEntity {
             }
         }
         None
-    }
-}
-
-impl ConflictingIterator<ClusterEntity> for ClusterEntity {
-    fn conflict_explicit(explicit: &ClusterEntity) -> Vec<String> {
-        Self::iterator()
-            .filter(|x| **x == *explicit)
-            .into_iter()
-            .filter(|x| **x == *explicit)
-            .map(|x| x.name().to_string())
-            .collect()
     }
 }
 
